@@ -1,3 +1,6 @@
 bin_PROGRAMS = strawberryd
 
-strawberryd_SOURCES = main.c
+strawberryd_CFLAGS = "-I."
+
+strawberryd_SOURCES = main.c \
+					config/config.c
