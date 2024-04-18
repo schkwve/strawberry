@@ -19,6 +19,9 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#pragma once
+#ifndef _SYSTEM_RLIM_H
+#define _SYSTEM_RLIM_H
 
 void limit_memory_usage(int limit);
+
+#endif /* _SYSTEM_RLIM_H */

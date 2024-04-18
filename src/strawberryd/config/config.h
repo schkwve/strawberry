@@ -19,7 +19,8 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#pragma once
+#ifndef _CONFIG_CONFIG_H
+#define _CONFIG_CONFIG_H
 
 struct strawberry_config {
 	// absolute file path
@@ -35,3 +36,5 @@ void config_load_config(void);
 
 void config_set_config_path(char *filepath);
 void config_set_mem_limit(int limit);
+
+#endif /* _CONFIG_CONFIG_H */
