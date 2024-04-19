@@ -19,9 +19,13 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
 
+STRAWBERRYD_VERSION = 0:1:0
+
 bin_PROGRAMS = strawberryd
 
-strawberryd_CFLAGS = "-I."
+strawberryd_CFLAGS = "-I. -DSTRAWBERRYD_VERSION=$(STRAWBERRYD_VERSION)"
 
 strawberryd_SOURCES = main.c \
-					config/config.c
+					config/config.c \
+					system/daemon.c \
+					system/rlim.c

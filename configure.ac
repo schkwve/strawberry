@@ -21,6 +21,8 @@
 
 AC_INIT([Strawberry], [0.1.0], [schkwve@gmail.com], [strawberry], [])
 
+AC_CONFIG_HEADERS([$(top_builddir)/src/strawberryd/config.h])
+
 AM_SILENT_RULES([yes])
 
 # Keep some clutter out of here
