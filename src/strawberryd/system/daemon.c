@@ -51,7 +51,4 @@ void daemonize(void)
 	// set up a default state
 	umask(0);
 	chdir("/");
-
-	openlog("strawberryd", LOG_PID, LOG_DAEMON);
-	syslog(LOG_INFO, "strawberryd has started");
 }

@@ -22,6 +22,7 @@
 #define _GNU_SOURCE
 #include <argp.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
 #include <syslog.h>
@@ -32,6 +33,8 @@
 #include <config.h>
 #include <config/config.h>
 #include <system/daemon.h>
+
+static bool should_daemonize = true;
 
 static void show_version(void)
 {
@@ -51,6 +54,9 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
 	switch (key) {
 		case 'c': // config
 			config_set_config_path(arg);
+			break;
+		case 25: // do not daemonize
+			should_daemonize = false;
 			break;
 		case 30: // set maxmem
 			int limit = atoi(arg);
@@ -80,6 +86,7 @@ int main(int argc, char **argv)
 	struct argp_option options[] = {
 		{"config", 'c', 0, 0, "Use a custom config file"},
 		{"max-memory", 30, 0, 0, "Set a maximum memory limit (Default: 4096 MB)"},
+		{"no-daemon", 25, 0, 0, "Do not daemonize the server"},
 		{"stop", 1, 0, 0, "Stop the Strawberry daemon"},
 		{"version", 'v', 0, 0, "Output version information and exit"},
 		{0}
@@ -106,7 +113,12 @@ int main(int argc, char **argv)
 		exit(EXIT_FAILURE);
 	}
 
-	daemonize();
+	if (should_daemonize) {
+		daemonize();
+	}
+
+	openlog("strawberryd", LOG_PID, LOG_DAEMON);
+	syslog(LOG_INFO, "strawberryd has started");
 
 	// @todo:
 	//atexit(cleanup);
