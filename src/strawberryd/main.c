@@ -25,6 +25,9 @@
 #include <string.h>
 #include <stdlib.h>
 #include <syslog.h>
+#include <unistd.h>
+#include <sys/file.h>
+#include <sys/stat.h>
 
 #include <config.h>
 #include <config/config.h>
@@ -70,6 +73,9 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
 
 int main(int argc, char **argv)
 {
+	const char *pid_filepath = "/var/run/strawberryd/strawberryd.pid";
+	const char *lock_filepath = "/var/lock/strawberryd/strawberryd.lock";
+
 	// set up available arguments
 	struct argp_option options[] = {
 		{"config", 'c', 0, 0, "Use a custom config file"},
@@ -87,12 +93,44 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
+	// try to obtain a lock
+	int lockfile = open(lock_filepath, O_RDWR | O_CREAT, 0666);
+	if (lockfile == -1) {
+		fprintf(stderr, "Failed to open lock file %s: %s\n", lock_filepath, strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+
+	int lock_result = flock(lockfile, LOCK_EX | LOCK_NB);
+	if (lock_result == -1) {
+		fprintf(stderr, "Failed to obtain lock file %s: %s\n", lock_filepath, strerror(errno));
+		exit(EXIT_FAILURE);
+	}
+
 	daemonize();
+
+	// @todo:
+	//atexit(cleanup);
+
+	// save a .pid file to /var/run/strawberryd
+	// @note: /var/run/strawberryd MUST be owned by the user (including group)
+	//        for this program to properly work.
+	pid_t pid = getpid();
+	FILE *pid_fd = fopen(pid_filepath, "w");
+	if (pid_fd == NULL) {
+		syslog(LOG_ERR, "couldn't write PID file; the server will have to be killed manually (PID: %ld)\n", (long)pid);
+	} else {
+		fprintf(pid_fd, "%ld\xa", (long)pid);
+		fclose(pid_fd);
+	}
 
 	// @todo: implement the server itself
 	while (1);
 
+	// cleanup
 	closelog();
+	if (unlink(pid_filepath) != 0) {
+		fprintf(stderr, "couldn't remove PID file\n");
+	}
 
 	return EXIT_SUCCESS;
 }

@@ -52,11 +52,6 @@ void daemonize(void)
 	umask(0);
 	chdir("/");
 
-	// close all open file descriptors
-	for (int x = sysconf(_SC_OPEN_MAX); x >= 0; x--) {
-		close(x);
-	}
-
 	openlog("strawberryd", LOG_PID, LOG_DAEMON);
 	syslog(LOG_INFO, "strawberryd has started");
 }
