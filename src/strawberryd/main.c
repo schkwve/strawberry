@@ -94,13 +94,13 @@ int main(int argc, char **argv)
 	}
 
 	// try to obtain a lock
-	int lockfile = open(lock_filepath, O_RDWR | O_CREAT, 0666);
-	if (lockfile == -1) {
+	FILE *lockfile = fopen(lock_filepath, "w+");
+	if (lockfile == NULL) {
 		fprintf(stderr, "Failed to open lock file %s: %s\n", lock_filepath, strerror(errno));
 		exit(EXIT_FAILURE);
 	}
 
-	int lock_result = flock(lockfile, LOCK_EX | LOCK_NB);
+	int lock_result = flock(fileno(lockfile), LOCK_EX | LOCK_NB);
 	if (lock_result == -1) {
 		fprintf(stderr, "Failed to obtain lock file %s: %s\n", lock_filepath, strerror(errno));
 		exit(EXIT_FAILURE);
@@ -129,7 +129,12 @@ int main(int argc, char **argv)
 	// cleanup
 	closelog();
 	if (unlink(pid_filepath) != 0) {
-		fprintf(stderr, "couldn't remove PID file\n");
+		syslog(LOG_ERR, "couldn't remove PID file\n");
+	}
+
+	flock(fileno(lockfile), LOCK_UN);
+	if (unlink(lock_filepath) != 0) {
+		syslog(LOG_ERR, "couldn't remove lock file\n");
 	}
 
 	return EXIT_SUCCESS;
