@@ -22,6 +22,9 @@
 #ifndef _CONFIG_CONFIG_H
 #define _CONFIG_CONFIG_H
 
+#define pid_filepath "/var/run/strawberryd/strawberryd.pid"
+#define lock_filepath "/var/lock/strawberryd/strawberryd.lock"
+
 struct strawberry_config {
 	// absolute file path
 	char *config_file;

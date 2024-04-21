@@ -64,6 +64,7 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
 			break;
 		case 1: // stop
 			// @todo: find and stop a daemon
+			daemon_stop();
 			break;
 		case 'v': // version
 			show_version();
@@ -79,9 +80,6 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
 
 int main(int argc, char **argv)
 {
-	const char *pid_filepath = "/var/run/strawberryd/strawberryd.pid";
-	const char *lock_filepath = "/var/lock/strawberryd/strawberryd.lock";
-
 	// set up available arguments
 	struct argp_option options[] = {
 		{"config", 'c', 0, 0, "Use a custom config file"},
