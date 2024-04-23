@@ -36,10 +36,7 @@ void daemonize(void)
 	}
 
 	// set up signal handlers
-	// @todo: move these outside of this function
-	//        and create signal handlers
 	signal(SIGCHLD, SIG_IGN);
-	signal(SIGHUP, SIG_IGN);
 
 	// fork step two
 	pid = fork();
@@ -56,30 +53,41 @@ void daemonize(void)
 	// set up a default state
 	umask(0);
 	chdir("/");
+
+	// close all file descriptors
+	// redirect stdin/stdout/stderr to /dev/null
+	for (int i = sysconf(_SC_OPEN_MAX); i > 3; i--) {
+		close(i);
+	}
+
+	freopen("/dev/null", "r", stdin);
+	freopen("/dev/null", "w+", stdout);
+	freopen("/dev/null", "w+", stderr);
+
+	// save a lockfile file to /var/lock/strawberryd
+	// @note: /var/lock/strawberryd MUST be owned by the user (including group)
+	//        for this program to properly work.
+	int lock_fd = open(lock_filepath, O_RDWR | O_CREAT, 0640);
+	if (lock_fd < 0) {
+		syslog(LOG_ERR, "couldn't write PID file; the server will have to be killed manually (PID: %ld)\n", (long)pid);
+	} else {
+		if (lockf(lock_fd, F_TLOCK, 0) < 0) {
+			exit(EXIT_FAILURE);
+		}
+
+		char buf[8] = {0};
+		sprintf(buf, "%ld\n", (long)getpid());
+		write(lock_fd, buf, strlen(buf));
+	}
 }
 
 void daemon_stop(void)
 {
-	// see if a lock is available
-	FILE *lockfile = fopen(lock_filepath, "r");
-	if (lockfile == NULL) {
-		fprintf(stderr, "Failed to open lock file %s: %s\n", lock_filepath, strerror(errno));
-		exit(EXIT_FAILURE);
-	}
-
-	int lock_result = flock(fileno(lockfile), LOCK_EX | LOCK_NB);
-	if (lock_result == 0) {
-		// the lock is not locked, throw an error and exit
-		fprintf(stderr, "Lock %s is not locked: %s. Is the server still running?\n", lock_filepath, strerror(errno));
-		fclose(lockfile);
-		exit(EXIT_FAILURE);
-	}
-
 	// try to open PID file
-	FILE *pid_fd = fopen(pid_filepath, "r");
+	FILE *pid_fd = fopen(lock_filepath, "r");
 	pid_t pid;
 	if (pid_fd == NULL) {
-		fprintf(stderr, "Failed to read PID %s: %s. Check system logs and kill the server manually.\n", pid_filepath, strerror(errno));
+		fprintf(stderr, "Failed to read PID from %s: %s. Check system logs and kill the server manually.\n", lock_filepath, strerror(errno));
 		exit(EXIT_FAILURE);
 	} else {
 		// read PID
@@ -95,6 +103,6 @@ void daemon_stop(void)
 		fclose(pid_fd);
 	}
 
-	kill(pid, SIGTERM);
+	kill(pid, SIGINT);
 	exit(EXIT_SUCCESS);
 }

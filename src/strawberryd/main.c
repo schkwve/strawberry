@@ -25,6 +25,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <syslog.h>
 #include <unistd.h>
 #include <sys/file.h>
@@ -35,6 +36,7 @@
 #include <system/daemon.h>
 
 static bool should_daemonize = true;
+static bool is_running = false;
 
 static void show_version(void)
 {
@@ -47,6 +49,25 @@ static void show_license(void)
 	fprintf(stdout, "This is free software.  You may redistribute copies of it under the terms of\n");
 	fprintf(stdout, "the GNU General Public License <https://www.gnu.org/licenses/gpl.html>.\n");
 	fprintf(stdout, "There is NO WARRANTY, to the extent permitted by law.\n");
+}
+
+static void signal_handler(int sig)
+{
+	switch (sig) {
+		case SIGINT:
+			// reset sigint handler
+			signal(SIGINT, SIG_DFL);
+			is_running = false;
+			break;
+		case SIGHUP:
+			syslog(LOG_INFO, "reloading configuration file");
+			break;
+		case SIGCHLD:
+			syslog(LOG_INFO, "received SIGCHLD");
+			break;
+		default:
+			break;
+	}
 }
 
 static int parse_opt(int key, char *arg, struct argp_state *state)
@@ -63,7 +84,6 @@ static int parse_opt(int key, char *arg, struct argp_state *state)
 			config_set_mem_limit(limit);
 			break;
 		case 1: // stop
-			// @todo: find and stop a daemon
 			daemon_stop();
 			break;
 		case 'v': // version
@@ -98,54 +118,30 @@ int main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
-	// try to obtain a lock
-	FILE *lockfile = fopen(lock_filepath, "w+");
-	if (lockfile == NULL) {
-		fprintf(stderr, "Failed to open lock file %s: %s\n", lock_filepath, strerror(errno));
-		exit(EXIT_FAILURE);
-	}
-
-	int lock_result = flock(fileno(lockfile), LOCK_EX | LOCK_NB);
-	if (lock_result == -1) {
-		fprintf(stderr, "Failed to obtain lock file %s: %s\n", lock_filepath, strerror(errno));
-		exit(EXIT_FAILURE);
-	}
-
 	if (should_daemonize) {
 		daemonize();
 	}
 
-	openlog("strawberryd", LOG_PID, LOG_DAEMON);
+	openlog("strawberryd", LOG_PID | LOG_CONS, LOG_DAEMON);
 	syslog(LOG_INFO, "strawberryd has started");
 
-	// @todo:
-	//atexit(cleanup);
-
-	// save a .pid file to /var/run/strawberryd
-	// @note: /var/run/strawberryd MUST be owned by the user (including group)
-	//        for this program to properly work.
-	pid_t pid = getpid();
-	FILE *pid_fd = fopen(pid_filepath, "w");
-	if (pid_fd == NULL) {
-		syslog(LOG_ERR, "couldn't write PID file; the server will have to be killed manually (PID: %ld)\n", (long)pid);
-	} else {
-		fprintf(pid_fd, "%ld\xa", (long)pid);
-		fclose(pid_fd);
-	}
+	// set up signal handlers
+	signal(SIGINT, signal_handler);
+	signal(SIGHUP, signal_handler);
 
 	// @todo: implement the server itself
-	while (1);
-
-	// cleanup
-	closelog();
-	if (unlink(pid_filepath) != 0) {
-		syslog(LOG_ERR, "couldn't remove PID file\n");
+	is_running = true;
+	while (is_running) {
+		sleep(10);
 	}
 
-	flock(fileno(lockfile), LOCK_UN);
+	syslog(LOG_INFO, "strawberryd is shutting down");
+
 	if (unlink(lock_filepath) != 0) {
-		syslog(LOG_ERR, "couldn't remove lock file\n");
+		syslog(LOG_ERR, "couldn't remove lockfile; a new daemon will not run until it is removed manually\n");
 	}
+
+	closelog();
 
 	return EXIT_SUCCESS;
 }
